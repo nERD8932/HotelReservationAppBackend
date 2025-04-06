@@ -13,11 +13,11 @@ def get_images(request):
     image: List[BGImages]
     for image in images:
         # Read image as binary and encode in Base64
-        with open(image.image_path, "rb") as image_file:
+        with open(os.path.join(settings.MEDIA_ROOT, image.image_path), "rb") as image_file:
             encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
 
         images_data.append({
-            "filename": image.image_path.split("/")[-1],
+            "filename": image.image_path,
             "data": encoded_string,
         })
 
@@ -30,7 +30,7 @@ def get_locations(request):
     locations: List[Locations]
     for location in locations:
         # Read image as binary and encode in Base64
-        with open(location.image_path, "rb") as image_file:
+        with open(os.path.join(settings.MEDIA_ROOT, location.image_path), "rb") as image_file:
             encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
 
         location_data.append({
