@@ -13,9 +13,19 @@ class Locations(models.Model):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        if self.image_path.startswith(str(settings.MEDIA_ROOT)):
+            self.image_path = os.path.relpath(self.image_path, settings.MEDIA_ROOT)
+        super().save(*args, **kwargs)
+
 class BGImages(models.Model):
     image_path = models.FilePathField(
         path=os.path.join(settings.MEDIA_ROOT, 'bgimages'),
         match=r'.*\.(jpg|png)$',
         recursive=True
     )
+
+    def save(self, *args, **kwargs):
+        if self.image_path.startswith(str(settings.MEDIA_ROOT)):
+            self.image_path = os.path.relpath(self.image_path, settings.MEDIA_ROOT)
+        super().save(*args, **kwargs)
