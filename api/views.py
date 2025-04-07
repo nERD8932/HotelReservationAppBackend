@@ -106,12 +106,15 @@ class SearchRequestSerializer:
                     'roomType': room.roomType,
                     'pricePerNight': room.pricePerNight,
                     'location': room.hotel_id.loc_id.name,
-                    'imageData': {
-                        'filename': room.hotel_id.image_path,
-                        'data': image_data.setdefault(room.hotel_id.image_path, get_img_data(room.hotel_id.image_path)),
-                    }
                 })
+                image_data.setdefault (
+                    int(room.hotel_id.hotel_id),
+                    {
+                        "filename": room.hotel_id.image_path,
+                        "data": get_img_data(room.hotel_id.image_path),
+                    }
+                )
             except Exception as e:
                 print(e)
                 pass
-        return response_data
+        return { "hotelData": response_data,  "imageData": image_data }
