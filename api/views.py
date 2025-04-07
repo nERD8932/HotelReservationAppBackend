@@ -1,10 +1,12 @@
+import datetime
+
 from django.shortcuts import render
 from django.http import JsonResponse, HttpResponse
 import os
 import base64
 from django.conf import settings
 from .models import Locations, BGImages, Hotel, Room
-from datetime import datetime
+from datetime import datetime, date
 
 
 def get_img_data(img_path):
@@ -55,9 +57,13 @@ def search(request):
                 and request.GET.get("endDate", None) is not None \
                 and request.GET.get("location", None) is not None:
             try:
-                search_req = SearchRequestSerializer(datetime.strptime(request.GET.get("startDate"), "%Y-%m-%d"),
-                                                    datetime.strptime(request.GET.get("endDate"), "%Y-%m-%d"),
+                search_req = SearchRequestSerializer(datetime.strptime(request.GET.get("startDate"), "%Y-%m-%d").date(),
+                                                    datetime.strptime(request.GET.get("endDate"), "%Y-%m-%d").date(),
                                                     request.GET.get("location"))
+                # print(search_req)
+
+                # print(Room.objects.filter(availableFrom__lte=search_req.startDate))
+                # print(Room.objects.filter(availableFrom__lte=date(2025, 5, 3)))
 
                 return JsonResponse(search_req.fetchResults(), safe=False)
             except ValueError:
@@ -70,19 +76,22 @@ def search(request):
 
 class SearchRequestSerializer:
     def __init__(self, start_date, end_date, location):
-        self.startDate = start_date
-        self.endDate = end_date
+        self.startDate: datetime.date = start_date
+        self.endDate: datetime.date  = end_date
         self.location = location
+
+    def __str__(self):
+        return f"startDate: {str(self.startDate)} endDate: {str(self.endDate)} location: {self.location}"
 
     def fetchResults(self):
 
         if self.location == "":
-            results = Room.objects.select_related('hotel_id__loc_id').filter(
-                availableFom__lte=self.startDate,
+            results = Room.objects.all().select_related('hotel_id', 'hotel_id__loc_id').filter(
+                availableFrom__lte=self.startDate,
                 availableTo__gte=self.endDate)
         else:
-            results = Room.objects.select_related('hotel_id__loc_id').filter(
-                availableFom__lte=self.startDate,
+            results = Room.objects.all().select_related('hotel_id', 'hotel_id__loc_id').filter(
+                availableFrom__lte=self.startDate,
                 availableTo__gte=self.endDate,
                 hotel_id__loc_id__name=self.location)
 
@@ -91,7 +100,7 @@ class SearchRequestSerializer:
         for room in results:
             try:
                 response_data.append({
-                    'hotelId': room.hotel_id,
+                    'hotelId': room.hotel_id.hotel_id,
                     'name': room.hotel_id.name,
                     'roomNumber': room.room_number,
                     'roomType': room.roomType,

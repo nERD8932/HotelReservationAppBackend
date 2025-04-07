@@ -53,5 +53,5 @@ class Room(models.Model):
     room_number = models.IntegerField()
     pricePerNight = models.IntegerField()
     roomType = models.CharField(max_length=32)
-    availableFom = models.DateField()
+    availableFrom = models.DateField()
     availableTo = models.DateField()
