@@ -40,6 +40,7 @@ def get_locations(request):
         for location in locations:
 
             location_data.append({
+                "locId": location.loc_id,
                 "name": location.name,
                 "imageData": {
                     "filename": location.image_path,
