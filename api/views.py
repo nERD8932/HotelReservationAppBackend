@@ -40,7 +40,7 @@ def authenticate_admin(request):
     return False
 
 @csrf_exempt
-def pull_from_github():
+def pull_from_github(request):
     if request.method == 'POST':
         if authenticate_admin(request):
             try:
