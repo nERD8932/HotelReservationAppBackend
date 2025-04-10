@@ -16,11 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from api.views import  get_images, get_locations, search
+from api.views import  get_images, get_locations, search, pull_from_github, add_hotel
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('media/', get_images),
     path('locations/', get_locations),
     path('search/', search),
+    path('pull/', pull_from_github),
+    path('add-hotel/', add_hotel),
 ]

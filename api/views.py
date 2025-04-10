@@ -5,9 +5,78 @@ from django.http import JsonResponse, HttpResponse
 import os
 import base64
 from django.conf import settings
-from .models import Locations, BGImages, Hotel, Room
+from .models import Locations, BGImages, Hotel, Room, APIToken
 from datetime import datetime, date
+from PIL import Image
+from django.views.decorators.csrf import csrf_exempt
+import re
 
+def sanitize_and_save(uploaded_file, save_path, f='JPEG'):
+    with Image.open(uploaded_file) as img:
+        img = img.convert('RGB')  # Strip alpha and other modes
+        data = list(img.getdata())  # Force pixel processing
+        clean_img = Image.new('RGB', img.size)
+        clean_img.putdata(data)
+        if max(clean_img.size[0], clean_img.size[1])>1600:
+            clean_img.thumbnail((1600, 1600), Image.ANTIALIAS)
+        clean_img.save(save_path, format=f)
+
+def authenticate_user(request):
+    auth = request.headers.get('Authorization', '')
+    if not auth.startswith('Bearer '):
+        return False
+    token = auth.split('Bearer ')[1]
+    if APIToken.objects.filter(token=token).exists():
+        return True
+    return False
+
+def authenticate_admin(request):
+    auth = request.headers.get('Authorization', '')
+    if not auth.startswith('Bearer '):
+        return False
+    token = auth.split('Bearer ')[1]
+    if APIToken.objects.filter(token=token, username='admin').exists():
+        return True
+    return False
+
+@csrf_exempt
+def pull_from_github():
+    if request.method == 'POST':
+        if authenticate_admin(request):
+            try:
+                status = os.system(f'cd {settings.BASE_DIR} && git pull')
+                return HttpResponse(f"<h1>Exited with cod: {status}</h1>", status=200)
+            except Exception as e:
+                return HttpResponse(f"<h1>Error: {e}</h1>", status=500)
+        else:
+            return HttpResponse(status=401)
+
+@csrf_exempt
+def add_hotel(request):
+    if request.method == 'POST':
+        if authenticate_user(request):
+            hotel_name = request.POST.get('hotel_name', None)
+            location = request.POST.get('location', None)
+            image = request.FILES.get('image', None)
+            if None in [hotel_name, location, image]:
+                return HttpResponse(status=401)
+            else:
+                if Locations.objects.filter(name=location).exists():
+                    try:
+                        san_name = re.sub(r'[^a-zA-Z0-9_-]', '', hotel_name)
+                        san_name = san_name.lower()
+                        save_path = f'{settings.MEDIA_ROOT}/hotels/{san_name}.jpg'
+                        sanitize_and_save(image, save_path)
+                        Hotel.objects.create(name=hotel_name, loc_id=Locations.objects.filter(name=location)[0], image_path=save_path)
+                        return HttpResponse(status=200)
+                    except Exception as e:
+                        return HttpResponse("Please try again later.", status=500)
+                else:
+                    return HttpResponse(status=400)
+        else:
+            return HttpResponse(status=400)
+    else:
+        return HttpResponse(status=400)
 
 def get_img_data(img_path):
     with open(os.path.join(settings.MEDIA_ROOT, img_path), "rb") as image_file:
@@ -29,7 +98,7 @@ def get_images(request):
 
         return JsonResponse(images_data, safe=False)
     else:
-        return HttpResponse(status=405)
+        return HttpResponse(status=400)
 
 def get_locations(request):
     if request.method == "GET":
@@ -50,7 +119,7 @@ def get_locations(request):
 
         return JsonResponse(location_data, safe=False)
     else:
-        return HttpResponse(status=405)
+        return HttpResponse(status=400)
 
 def search(request):
     if request.method == "GET":
@@ -68,11 +137,11 @@ def search(request):
 
                 return JsonResponse(search_req.fetchResults(), safe=False)
             except ValueError:
-                return HttpResponse(status=405)
+                return HttpResponse(status=400)
         else:
-            return HttpResponse(status=405)
+            return HttpResponse(status=400)
     else:
-        return HttpResponse(status=405)
+        return HttpResponse(status=400)
 
 
 class SearchRequestSerializer:

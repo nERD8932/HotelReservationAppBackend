@@ -3,13 +3,20 @@ import os
 from django.conf import settings
 
 
+class APIToken(models.Model):
+    token = models.CharField(primary_key=True, max_length=255)
+    username = models.CharField(blank=True, max_length=255)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
 class CustomModel(models.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     def save(self, *args, **kwargs):
         if self.image_path.startswith(str(settings.MEDIA_ROOT)):
-            self.image_path = os.path.relpath(self.image_path, settings.MEDIA_ROOT)
+            self.image_path = os.path.relpath(self.image_path, settings.MEDIA_ROOT).replace('\\', '/')
         super().save(*args, **kwargs)
 
     class Meta:
