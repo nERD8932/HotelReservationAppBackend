@@ -51,7 +51,7 @@ The website URL structure is as follows:
   - Example cURL Request:
     ```bash
     curl --location '127.0.0.1:8000/add-hotel/'
-    --header 'Authorization: ••••••'
+    --header 'Authorization: Bearer ••••••'
     --form 'hotel_name="Sunrise Lodge"'
     --form 'location="Toronto"'
     --form 'image=@"bE82DPhW7/hilton-grand-vacations.jpg"'
