@@ -5,11 +5,14 @@ from django.http import JsonResponse, HttpResponse
 import os
 import base64
 from django.conf import settings
-from .models import Locations, BGImages, Hotel, Room, APIToken
+from .models import Locations, BGImages, Hotel, Room, APIToken, Booking
 from datetime import datetime, date
 from PIL import Image
 from django.views.decorators.csrf import csrf_exempt
 import re
+import json
+import segno
+import io
 
 def sanitize_and_save(uploaded_file, save_path, f='JPEG'):
     with Image.open(uploaded_file) as img:
@@ -78,11 +81,91 @@ def add_hotel(request):
     else:
         return HttpResponse(status=400)
 
-
+# {
+#   'endDate': '2025-05-15',
+#   'guests': [{'age': '',
+#               'email': 'a',
+#               'firstName': 'a',
+#               'gender': 'Other',
+#               'index': 0,
+#               'lastName': 'a'}],
+#   'hotelId': 1,
+#   'location': 'Halifax',
+#   'roomNumber': 102,
+#   'startDate': '2025-05-14'
+#   'paymentAmount': 213123
+# }
 @csrf_exempt
 def book(request):
     if request.method == 'POST':
-        print(request.POST)
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+            guests = data.get('guests')
+            start_date = data.get("startDate")
+            end_date = data.get("endDate")
+            location = data.get("location")
+            hotel_id = data.get('hotelId')
+            room_num = data.get('roomNumber')
+            payment_amount = data.get('paymentAmount')
+
+            if None not in [guests, start_date, end_date, location]:
+
+                start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+                end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+                room = (Room.objects
+                .all()
+                .select_related('hotel_id', 'hotel_id__loc_id')
+                .filter(
+                    availableFrom__lte=start_date,
+                    availableTo__gte=end_date,
+                    hotel_id__loc_id__name=location,
+                    hotel_id=hotel_id,
+                    room_number=room_num,
+                ).first())
+
+                if room:
+                    o_end_date = room.availableTo
+                    hotel = Hotel.objects.get(hotel_id=room.hotel_id.hotel_id)
+
+                    if room.availableFrom > start_date:
+                        room.availableTo = start_date
+                        room.save()
+                        Room.objects.create(
+                            hotel_id=hotel,
+                            room_number=room.room_number,
+                            pricePerNight=room.pricePerNight,
+                            roomType=room.roomType,
+                            availableFrom=end_date,
+                            availableTo=o_end_date)
+
+                    else:
+                        room.availableFrom = end_date
+                        room.save()
+
+                    booking = Booking.objects.create(
+                        hotel_id=hotel,
+                        room_number=room.room_number,
+                        bookedFrom=start_date,
+                        bookedTo=end_date,
+                        bookedBy=f"{guests[0].get('firstName')} {guests[0].get('lastName')}",
+                        bookedByEmail=guests[0].get('email'),
+                        guestCount=len(guests),
+                        paymentAmt=payment_amount,
+                    )
+
+                    return JsonResponse({
+                        "booking": str(booking.booking_id),
+                        'qr': generate_qr_base64(str(booking.booking_id))
+                    },
+                    status=200)
+                else:
+                    return JsonResponse({"booking":"", "qr":""}, status=400)
+            else:
+                return JsonResponse({"booking":"", "qr":""}, status=400)
+        except json.JSONDecodeError:
+            return JsonResponse({"booking":"", "qr":""}, status=400)
+    return JsonResponse({"booking":"", "qr":""}, status=400)
 
 def get_img_data(img_path):
     with open(os.path.join(settings.MEDIA_ROOT, img_path), "rb") as image_file:
@@ -159,7 +242,7 @@ class SearchRequestSerializer:
     def __str__(self):
         return f"startDate: {str(self.startDate)} endDate: {str(self.endDate)} location: {self.location}"
 
-    def fetchResults(self):
+    def fetchResults(self, include_img_data=True):
 
         if self.location == "":
             results = Room.objects.all().select_related('hotel_id', 'hotel_id__loc_id').filter(
@@ -183,14 +266,26 @@ class SearchRequestSerializer:
                     'pricePerNight': room.pricePerNight,
                     'location': room.hotel_id.loc_id.name,
                 })
-                image_data.setdefault (
-                    int(room.hotel_id.hotel_id),
-                    {
-                        "filename": room.hotel_id.image_path,
-                        "data": get_img_data(room.hotel_id.image_path),
-                    }
-                )
+                if include_img_data:
+                    image_data.setdefault (
+                        int(room.hotel_id.hotel_id),
+                        {
+                            "filename": room.hotel_id.image_path,
+                            "data": get_img_data(room.hotel_id.image_path),
+                        }
+                    )
             except Exception as e:
                 print(e)
                 pass
-        return { "hotelData": response_data,  "imageData": image_data }
+        if include_img_data:
+            return { "hotelData": response_data,  "imageData": image_data }
+        else:
+            return { "hotelData": response_data }
+
+def generate_qr_base64(data: str) -> str:
+    qr = segno.make(data)
+    buffer = io.BytesIO()
+    qr.save(buffer, kind='png', border=0)
+    buffer.seek(0)
+    encoded = base64.b64encode(buffer.read()).decode('utf-8')
+    return encoded

@@ -4,3 +4,4 @@ sqlparse==0.5.3
 tzdata==2025.2
 python-dotenv==1.1.0
 pillow==11.1.0
+segno==1.6.6
