@@ -43,7 +43,12 @@ The website URL structure is as follows:
   - Method: **GET**
   - Format: ?startDate=`[YYYY-MM-DD]`&endDate=`[YYYY-MM-DD]`&location=`[location name, or empty for no filtering]`
   - **Note:** All fields need to be included for the request to be conidered valid.
-  
+    
+---
+- /book/ - Used to add a hotel entry to the database.
+  - Method: **POST**
+  - Format: A POST request used to book hotels via the android app.
+       
 ---
 - /add-hotel/ - Used to add a hotel entry to the database.
   - Method: **POST**
