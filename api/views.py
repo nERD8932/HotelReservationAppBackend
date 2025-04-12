@@ -78,6 +78,12 @@ def add_hotel(request):
     else:
         return HttpResponse(status=400)
 
+
+@csrf_exempt
+def book(request):
+    if request.method == 'POST':
+        print(request.POST)
+
 def get_img_data(img_path):
     with open(os.path.join(settings.MEDIA_ROOT, img_path), "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read()).decode("utf-8")

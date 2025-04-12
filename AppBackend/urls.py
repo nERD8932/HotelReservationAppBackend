@@ -16,7 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from api.views import  get_images, get_locations, search, pull_from_github, add_hotel
+from api.views import  get_images, get_locations, search, pull_from_github, add_hotel, book
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -25,4 +25,6 @@ urlpatterns = [
     path('search/', search),
     path('pull/', pull_from_github),
     path('add-hotel/', add_hotel),
+    path('book/', book),
+
 ]
